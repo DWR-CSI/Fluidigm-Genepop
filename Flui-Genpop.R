@@ -1,4 +1,5 @@
 library(caroline)
+library(data.table)
 getwd()
 #Set working directory
 setwd("C:/Users/sbrown/OneDrive - California Department of Water Resources/Salvage Pilot Study Documents/Fluidigm Data/20240321_Salvage_JPE/R Script Processing")
@@ -121,3 +122,58 @@ barplot(pca1$eig[1:50],main="PCA eigenvalues", col=heat.colors(50))
 s.class(pca1$li, pop(minbad),xax=1,yax=2, col=col, axesell=FALSE,
         cstar=0, cpoint=1.5, grid=FALSE, cellipse = 0, clabel=0)
 
+
+
+
+# Greb1L Calling ----------------------------------------------------------
+library(readxl)
+
+getwd()
+#Set working directory
+setwd("C:/Users/smeyer/OneDrive - California Department of Water Resources/Scott/Fluidigm-git/Fluidigm-Genepop")
+#Read in data
+data1 <- read.csv("Results_20240321_Salvage_JPE.csv", skip=14, nrows=97)
+
+#pull out a key for the snp names
+snps <-  as.vector(data1[1,])
+nums <- colnames(data1)
+snpkey <- cbind(snps, nums)
+
+
+#remove the snp row and add SNP names
+colnames(data1) <- data1[1,]
+data1 <- data1[-1,-1]
+
+#pull out greb data
+grebs <- data1[,]
+
+grebcols <- grep("GREB", snpkey[,1])
+grebdata <- matrix(nrow = 96, ncol=14)
+for (i in 1:length(grebcols)) {
+  b <- grebcols[i]
+  a <- data1[,b-1]
+  grebdata[,i] <- a 
+}
+colnames(grebdata) <- snpkey[grep("GREB", snpkey[,1]),1]
+
+greb_key <- read.csv("greb1l_calls_fluidigm_guide.csv")
+
+for (i in 1:length(greb_key[,1])) {
+  a <- greb_key[i,1]
+  b <- grebdata[,a]
+  homox <- which(b=="XX")
+  homoy <- which(b=="YY")
+  het <- which(b=="XY")
+  grebdata[homox,a] <- greb_key[i,4]
+  grebdata[homoy,a] <- greb_key[i,6]
+  grebdata[het,a] <- "Het"
+}
+
+grebdata <- as.data.frame(grebdata)
+grebdata$Samples <- data1[,1]
+
+greblong <- pivot_longer(grebdata, cols = 1:14)
+
+library(ggplot2)
+ggplot(greblong, aes(x = name, y = Samples, fill = value)) + 
+  geom_tile() 
