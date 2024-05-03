@@ -1,0 +1,15 @@
+SNP_NAME,ALLELE,Allele X,Allele X pheno,Allele Y,Allele Y pheno
+GREB1l_pos2152693,AG,X,early,Y,late
+GREB1l_pos2154761,AC,X,early,Y,late
+GREB1l_pos2194538,TC,X,early,Y,late
+GREB1l_pos2198644,TA,X,early,Y,late
+GREB1l_pos2199210,TA,X,early,Y,late
+GREB1l_pos2200828,GA,X,early,Y,late
+GREB1l_pos2202893,AT,X,late,Y,early
+GREB1l_pos2232335,AT,X,late,Y,early
+GREB1l_pos2236519,AG,X,late,Y,early
+GREB1l_pos2242614,CA,X,late,Y,early
+GREB1l_pos2250316,AG,X,late,Y,early
+GREB1l_pos2263077,GA,X,late,Y,early
+GREB1l_pos2275162,AT,X,late,Y,early
+GREB1l_pos2284749,CA,X,late,Y,early
