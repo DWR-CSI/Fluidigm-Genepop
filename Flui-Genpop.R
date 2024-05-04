@@ -1,19 +1,22 @@
 # Setup -----------
 library(caroline)
-library(data.table)
 library(tidyverse)
 library(adegenet)
 library(RColorBrewer)
+library(readxl)
 
 # Settings -----------------------
 # Set working directory
 # setwd("C:/Users/sbrown/OneDrive - California Department of Water Resources/Salvage Pilot Study Documents/Fluidigm Data/20240321_Salvage_JPE/R Script Processing")
-setwd("/Users/bryan/Documents/DWR/fluidigm/") # set to your working directory where relevant files exist.
+setwd("/Users/bryan/Documents/DWR/fl2gp/") # set to your working directory where relevant files exist.
 study_name <- "JPE salvage Fluidigm" # choose study name accordingly
 fluidigm_input_loc <- "Results_20240321_Salvage_JPE.csv"
 snp_keyfile_name <- "SNPKey.csv" # name it whatever
-genpop_input_filename <- "~/Documents/DWR/fluidigm/genepop_test2.gen" # name it whatever
+genpop_filename <- "~/Documents/DWR/fluidigm/genepop_test2.gen" # name it whatever
 locus_keyfile_name <- "Locus_Key_New_Order_240129.csv"
+greb_key_file <- "greb1l_calls_fluidigm_guide.csv"
+
+greb_output_filename <-"greb1l_data.tsv"
 
 # Functions ----------------------
 
@@ -28,8 +31,9 @@ read_fluidigm <- function(x, skip = 15, ...) { # x = filename
 gen_snpkey <- function(x) {
   data <- tibble(
     SNP = colnames(x)[-1], # remove first col which is sample names
-    number = 1:length(colnames(x)[-1])
-  ) # numbered sequentially
+    number = 1:length(colnames(x)[-1]), # numbered sequentially
+    greb1l = ifelse(grepl("GREB", colnames(x)[-1]), TRUE, FALSE) # greb1l or other
+  )
   return(data)
 }
 
@@ -79,6 +83,52 @@ resort_fl2gp <- function(data, keyfile = "Locus_Key_New_Order_240129.csv") {
   data_reordered <- data[, new_order]
   return(data_reordered)
 }
+
+# Greb functions ----------------------------
+lookup_greb <- function(allele, locus_name, greb_key) { # Look up greb allele in greb key file
+  ifelse(greb_key$X_early[which(greb_key$SNP_NAME == locus_name)] & allele == "X" | !greb_key$X_early[which(greb_key$SNP_NAME == locus_name)] & allele == "Y", "Early", "Late")
+}
+
+translate_greb_locus <- function(gcall, locus, greb_key) {
+  # Given a greb1l genotype, locus info and key file, return early or late
+  if (is.na(gcall)) {
+    return(NA)
+  } else if (gcall == "No Call") {
+    return("No Call")
+  } else {
+    allele1 <- substr(as.character(gcall), 1, 1)
+    allele2 <- substr(as.character(gcall), 2, 2)
+    if (allele1 == allele2) {
+      lookup_greb(allele = allele1, locus_name = locus, greb_key = greb_key)
+    } else if (allele1 == "X" & allele2 == "Y") {
+      return("Heterozygote")
+    } else {
+      return("Error")
+    }
+  }
+}
+
+translate_grebs <- function(x, greb_key) {
+  data <- x %>%
+    pivot_longer(cols = -samplename, names_to = "locus", values_to = "gcall") %>%
+    mutate(
+      Allele1 = ifelse(gcall != "No Call", substr(gcall, 1, 1), NA),
+      Allele2 = ifelse(gcall != "No Call", substr(gcall, 2, 2), NA),
+      greb_el = map2_chr(gcall, locus, ~ translate_greb_locus(.x, .y, greb_key))
+    )
+  return(data)
+}
+
+extract_grebs <- function(data, greb_key) {
+  data2 <- data %>%
+    select(
+      "samplename",
+      starts_with("GREB")
+    ) %>%
+    translate_grebs(greb_key)
+  return(data2)
+}
+
 # Working code ---------------------
 data2 <- read_fluidigm(fluidigm_input_loc)
 
@@ -92,14 +142,14 @@ translated_data2 <- translate_fluidigm_to_genepop(data2)
 resorted_data2 <- resort_fl2gp(translated_data2, keyfile = locus_keyfile_name)
 
 # export the genepop file
-write_genpop_file(data = resorted_data2, filename = genpop_input_filename, title = study_name)
+write_genpop_file(data = resorted_data2, filename = genpop_filename, title = study_name)
 write.csv(snpkey, snp_keyfile_name)
 
 
 # Run a quick PCA to see if the format works
 
 
-adphen <- read.genepop(genpop_input_filename, ncode = 3)
+adphen <- read.genepop(genpop_filename, ncode = 3)
 adphen$pop
 x <- scaleGen(adphen, NA.method = "mean")
 # quick look at data before putting populations into genepop file
@@ -170,57 +220,23 @@ s.class(pca1$li, pop(minbad),
 )
 
 
+# Pull out Greb1l loci -------
+greb_key_data <- read.csv(greb_key_file) %>% # load greb locus info key file
+  mutate(X_early = (Allele.X.pheno == "early"))
+grebs <- extract_grebs(data2, greb_key_data)
+
+grebs_wider <- pivot_wider( # Format: Each locus is a column
+  grebs,
+  id_cols = samplename,
+  names_from = locus,
+  values_from = greb_el
+) # You can filter out grebs here if you don't want all of them
+
+# Total up Early, Late, Het, No Call counts
+grebs_wider$early_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Early", na.rm = TRUE)
+grebs_wider$late_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Late", na.rm = TRUE)
+grebs_wider$het_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Heterozygote", na.rm = TRUE)
+grebs_wider$nocall_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "No Call", na.rm = TRUE)
 
 
-# Greb1L Calling ----------------------------------------------------------
-library(readxl)
-
-getwd()
-# Set working directory
-setwd("C:/Users/smeyer/OneDrive - California Department of Water Resources/Scott/Fluidigm-git/Fluidigm-Genepop")
-# Read in data
-data1 <- read.csv("Results_20240321_Salvage_JPE.csv", skip = 14, nrows = 97)
-
-# pull out a key for the snp names
-snps <- as.vector(data1[1, ])
-nums <- colnames(data1)
-snpkey <- cbind(snps, nums)
-
-
-# remove the snp row and add SNP names
-colnames(data1) <- data1[1, ]
-data1 <- data1[-1, -1]
-
-# pull out greb data
-grebs <- data1[, ]
-
-grebcols <- grep("GREB", snpkey[, 1])
-grebdata <- matrix(nrow = 96, ncol = 14)
-for (i in 1:length(grebcols)) {
-  b <- grebcols[i]
-  a <- data1[, b - 1]
-  grebdata[, i] <- a
-}
-colnames(grebdata) <- snpkey[grep("GREB", snpkey[, 1]), 1]
-
-greb_key <- read.csv("greb1l_calls_fluidigm_guide.csv")
-
-for (i in 1:length(greb_key[, 1])) {
-  a <- greb_key[i, 1]
-  b <- grebdata[, a]
-  homox <- which(b == "XX")
-  homoy <- which(b == "YY")
-  het <- which(b == "XY")
-  grebdata[homox, a] <- greb_key[i, 4]
-  grebdata[homoy, a] <- greb_key[i, 6]
-  grebdata[het, a] <- "Het"
-}
-
-grebdata <- as.data.frame(grebdata)
-grebdata$Samples <- data1[, 1]
-
-greblong <- pivot_longer(grebdata, cols = 1:14)
-
-library(ggplot2)
-ggplot(greblong, aes(x = name, y = Samples, fill = value)) +
-  geom_tile()
+write_tsv(grebs_wider, file = greb_output_filename)
