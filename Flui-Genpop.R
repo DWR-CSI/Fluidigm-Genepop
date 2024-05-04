@@ -10,13 +10,13 @@ library(readxl)
 # setwd("C:/Users/sbrown/OneDrive - California Department of Water Resources/Salvage Pilot Study Documents/Fluidigm Data/20240321_Salvage_JPE/R Script Processing")
 setwd("/Users/bryan/Documents/DWR/fl2gp/") # set to your working directory where relevant files exist.
 study_name <- "JPE salvage Fluidigm" # choose study name accordingly
-fluidigm_input_loc <- "Results_20240321_Salvage_JPE.csv"
-snp_keyfile_name <- "SNPKey.csv" # name it whatever
-genpop_filename <- "~/Documents/DWR/fluidigm/genepop_test2.gen" # name it whatever
-locus_keyfile_name <- "Locus_Key_New_Order_240129.csv"
-greb_key_file <- "greb1l_calls_fluidigm_guide.csv"
+fluidigm_input_loc <- "Results_20240321_Salvage_JPE.csv" #input, set to corresponding file
+snp_keyfile_name <- "SNPKey.csv" # output, name it whatever
+genpop_filename <- "~/Documents/DWR/fluidigm/genepop_test2.gen" # An output, name it whatever
+locus_keyfile_name <- "Locus_Key_New_Order_240129.csv" # Input, set accordingly
+greb_key_file <- "greb1l_calls_fluidigm_guide.csv" # Input, set accordingly
 
-greb_output_filename <-"greb1l_data.tsv"
+greb_output_filename <-"greb1l_data.tsv" # Output, give an informative and unique name
 
 # Functions ----------------------
 
