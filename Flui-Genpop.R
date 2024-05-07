@@ -8,11 +8,11 @@ library(readxl)
 # Settings -----------------------
 # Set working directory
 # setwd("C:/Users/sbrown/OneDrive - California Department of Water Resources/Salvage Pilot Study Documents/Fluidigm Data/20240321_Salvage_JPE/R Script Processing")
-setwd("/Users/bryan/Documents/DWR/fl2gp/") # set to your working directory where relevant files exist.
+setwd("C:/Users/bryann/Documents/code/fl2gp") # set to your working directory where relevant files exist.
 study_name <- "JPE salvage Fluidigm" # choose study name accordingly
 fluidigm_input_loc <- "Results_20240321_Salvage_JPE.csv" #input, set to corresponding file
 snp_keyfile_name <- "SNPKey.csv" # output, name it whatever
-genpop_filename <- "~/Documents/DWR/fluidigm/genepop_test2.gen" # An output, name it whatever
+genpop_filename <- "genepop_test2.gen" # An output, name it whatever
 locus_keyfile_name <- "Locus_Key_New_Order_240129.csv" # Input, set accordingly
 greb_key_file <- "greb1l_calls_fluidigm_guide.csv" # Input, set accordingly
 
@@ -108,7 +108,7 @@ translate_greb_locus <- function(gcall, locus, greb_key) {
   }
 }
 
-translate_grebs <- function(x, greb_key) {
+translate_grebs <- function(x, greb_key) { #separate the two alleles per locus
   data <- x %>%
     pivot_longer(cols = -samplename, names_to = "locus", values_to = "gcall") %>%
     mutate(
@@ -132,6 +132,28 @@ extract_grebs <- function(data, greb_key) {
 # Working code ---------------------
 data2 <- read_fluidigm(fluidigm_input_loc)
 
+# Pull out Greb1l loci -------
+greb_key_data <- read.csv(greb_key_file) %>% # load greb locus info key file
+  mutate(X_early = (Allele.X.pheno == "early"))
+grebs <- extract_grebs(data2, greb_key_data)
+
+grebs_wider <- pivot_wider( # Format: Each locus is a column
+  grebs,
+  id_cols = samplename,
+  names_from = locus,
+  values_from = greb_el
+) # You can filter out grebs here if you don't want all of them
+
+# Total up Early, Late, Het, No Call counts
+grebs_wider$early_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Early", na.rm = TRUE)
+grebs_wider$late_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Late", na.rm = TRUE)
+grebs_wider$het_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Heterozygote", na.rm = TRUE)
+grebs_wider$nocall_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "No Call", na.rm = TRUE)
+
+
+write_tsv(grebs_wider, file = greb_output_filename)
+
+# Translate fluidigm data to genepop format ----------------------------
 # pull out a key for the snp names
 snpkey <- gen_snpkey(data2)
 
@@ -218,25 +240,3 @@ s.class(pca1$li, pop(minbad),
   xax = 1, yax = 2, col = col, axesell = FALSE,
   cstar = 0, cpoint = 1.5, grid = FALSE, cellipse = 0, clabel = 0
 )
-
-
-# Pull out Greb1l loci -------
-greb_key_data <- read.csv(greb_key_file) %>% # load greb locus info key file
-  mutate(X_early = (Allele.X.pheno == "early"))
-grebs <- extract_grebs(data2, greb_key_data)
-
-grebs_wider <- pivot_wider( # Format: Each locus is a column
-  grebs,
-  id_cols = samplename,
-  names_from = locus,
-  values_from = greb_el
-) # You can filter out grebs here if you don't want all of them
-
-# Total up Early, Late, Het, No Call counts
-grebs_wider$early_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Early", na.rm = TRUE)
-grebs_wider$late_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Late", na.rm = TRUE)
-grebs_wider$het_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Heterozygote", na.rm = TRUE)
-grebs_wider$nocall_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "No Call", na.rm = TRUE)
-
-
-write_tsv(grebs_wider, file = greb_output_filename)
