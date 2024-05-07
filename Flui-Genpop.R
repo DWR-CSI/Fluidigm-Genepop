@@ -18,6 +18,9 @@ greb_key_file <- "greb1l_calls_fluidigm_guide.csv" # Input, set accordingly
 
 greb_output_filename <-"greb1l_data.tsv" # Output, give an informative and unique name
 
+the_good_grebs <- c("GREB1l_pos2194538", "GREB1l_pos2198644", "GREB1l_pos2199210", "GREB1l_pos2200828",	"GREB1l_pos2202893")
+
+
 # Functions ----------------------
 
 read_fluidigm <- function(x, skip = 15, ...) { # x = filename
@@ -149,7 +152,13 @@ grebs_wider$early_greb_count <- rowSums(select(grebs_wider, starts_with("GREB"))
 grebs_wider$late_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Late", na.rm = TRUE)
 grebs_wider$het_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Heterozygote", na.rm = TRUE)
 grebs_wider$nocall_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "No Call", na.rm = TRUE)
+grebs_wider$error_greb_count <- rowSums(select(grebs_wider, starts_with("GREB")) == "Error", na.rm = TRUE)
 
+grebs_wider$early_good_greb_count <- rowSums(select(grebs_wider, any_of(the_good_grebs)) == "Early", na.rm = TRUE)
+grebs_wider$late_good_greb_count <- rowSums(select(grebs_wider, any_of(the_good_grebs)) == "Late", na.rm = TRUE)
+grebs_wider$het_good_greb_count <- rowSums(select(grebs_wider, any_of(the_good_grebs)) == "Heterozygote", na.rm = TRUE)
+grebs_wider$nocall_good_greb_count <- rowSums(select(grebs_wider, any_of(the_good_grebs)) == "No Call", na.rm = TRUE)
+grebs_wider$error_good_greb_count <- rowSums(select(grebs_wider, any_of(the_good_grebs)) == "Error", na.rm = TRUE)
 
 write_tsv(grebs_wider, file = greb_output_filename)
 
