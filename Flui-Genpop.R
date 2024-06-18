@@ -10,10 +10,11 @@ library(readxl)
 # setwd("C:/Users/sbrown/OneDrive - California Department of Water Resources/Salvage Pilot Study Documents/Fluidigm Data/20240321_Salvage_JPE/R Script Processing")
 setwd("C:/Users/bryann/Documents/code/fl2gp") # set to your working directory where relevant files exist.
 study_name <- "JPE salvage Fluidigm" # choose study name accordingly
-fluidigm_input_loc <- "Results_20240321_Salvage_JPE.csv" #input, set to corresponding file
+fluidigm_input_loc <- file.choose() #"Results_20240321_Salvage_JPE.csv" #input, set to corresponding file
 snp_keyfile_name <- "SNPKey.csv" # output, name it whatever
 genpop_filename <- "genepop_test2.gen" # An output, name it whatever
 locus_keyfile_name <- "Locus_Key_New_Order_240129.csv" # Input, set accordingly
+n_loci_cutoff <- 80 # Number of loci, set accordingly
 greb_key_file <- "greb1l_calls_fluidigm_guide.csv" # Input, set accordingly
 
 greb_output_filename <-"greb1l_data.tsv" # Output, give an informative and unique name
@@ -28,7 +29,8 @@ read_fluidigm <- function(x, skip = 15, ...) { # x = filename
     select(-c("...1")) %>% # skip first column
     rename(samplename = "...2") %>% # second column is samplename
     mutate(across(-1, ~ factor(.x, levels = c("XX", "XY", "YY", "No Call", "NTC", "Invalid")))) # rest of columns are factor data
-  return(data)
+  first_na_row <- which(is.na(data$samplename))[1] # find the first row with NA in the samplename column
+  return(data[1:(first_na_row - 1), ]) # return the data up to that row
 }
 
 gen_snpkey <- function(x) {
@@ -58,8 +60,8 @@ translate_fluidigm_to_genepop <- function(data) { # translates XX to 100100, etc
   return(new_data)
 }
 
-write_genpop_file <- function(data, filename, title = "Fluidigm", ...) { # Write a table with genepop format calls to a file
-  initial_data <- c(title, 1:96, "Pop") # required header data for genepop, 1:96 represents the SNPs
+write_genpop_file <- function(data, filename, title = "Fluidigm", n_loci = 96, ...) { # Write a table with genepop format calls to a file
+  initial_data <- c(title, 1:n_loci, "Pop") # required header data for genepop, 1:96 represents the SNPs
   write.table(initial_data,
     file = filename,
     sep = "\t",
@@ -68,6 +70,7 @@ write_genpop_file <- function(data, filename, title = "Fluidigm", ...) { # Write
     quote = FALSE, ...
   )
   data_with_comma <- data %>%
+    select(1:(n_loci+1)) %>% # select n_loci + 1 columns
     add_column(comma = ",", .after = 1) # add comma between rows 1 and 2
   write.table(data_with_comma,
     file = filename,
@@ -173,7 +176,7 @@ translated_data2 <- translate_fluidigm_to_genepop(data2)
 resorted_data2 <- resort_fl2gp(translated_data2, keyfile = locus_keyfile_name)
 
 # export the genepop file
-write_genpop_file(data = resorted_data2, filename = genpop_filename, title = study_name)
+write_genpop_file(data = resorted_data2, filename = genpop_filename, title = study_name, n_loci = n_loci_cutoff)
 write.csv(snpkey, snp_keyfile_name)
 
 
