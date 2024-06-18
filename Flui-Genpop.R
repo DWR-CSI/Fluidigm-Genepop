@@ -10,18 +10,36 @@ library(readxl)
 # setwd("C:/Users/sbrown/OneDrive - California Department of Water Resources/Salvage Pilot Study Documents/Fluidigm Data/20240321_Salvage_JPE/R Script Processing")
 setwd("C:/Users/bryann/Documents/code/fl2gp") # set to your working directory where relevant files exist.
 study_name <- "JPE salvage Fluidigm" # choose study name accordingly
+n_loci_cutoff <- 80 # Number of loci, set accordingly
+max_missing_data <- 0.3 # Maximum missing data allowed
 fluidigm_input_loc <- file.choose() #"Results_20240321_Salvage_JPE.csv" #input, set to corresponding file
 snp_keyfile_name <- "SNPKey.csv" # output, name it whatever
 genpop_filename <- "genepop_test2.gen" # An output, name it whatever
 locus_keyfile_name <- "Locus_Key_New_Order_240129.csv" # Input, set accordingly
-n_loci_cutoff <- 80 # Number of loci, set accordingly
+
 greb_key_file <- "greb1l_calls_fluidigm_guide.csv" # Input, set accordingly
 
 greb_output_filename <-"greb1l_data.tsv" # Output, give an informative and unique name
 
 the_good_grebs <- c("GREB1l_pos2194538", "GREB1l_pos2198644", "GREB1l_pos2199210", "GREB1l_pos2200828",	"GREB1l_pos2202893")
 
+log_filename <- paste0(Sys.Date(),"_", Sys.time(), "_log.txt") # Output, give an informative and unique name
+sink(log_filename, append = FALSE) # Log file)
 
+# Logging -----------------------
+print(Sys.Date())
+print(Sys.time())
+print(paste0("Study name: ", study_name))
+print(paste0("Input file: ",fluidigm_input_loc))
+print(paste0("Working directory: ", getwd()))
+print("Settings  -------")
+print(paste0("SNP key file: ",snp_keyfile_name))
+print(paste0("Locus key file: ",locus_keyfile_name))
+print(paste0("Number of loci: ",n_loci_cutoff))
+print(paste0("Grebs key file: ",greb_key_file))
+print("Output Files -------")
+print(paste0("Grebs output file: ",greb_output_filename))
+print(paste0("Genepop output file: ",genpop_filename))
 # Functions ----------------------
 
 read_fluidigm <- function(x, skip = 15, ...) { # x = filename
@@ -175,8 +193,25 @@ translated_data2 <- translate_fluidigm_to_genepop(data2)
 
 resorted_data2 <- resort_fl2gp(translated_data2, keyfile = locus_keyfile_name)
 
+qc_data <- resorted_data2 %>%
+  mutate(
+    missing = rowSums(. == "000000") / (ncol(resorted_data2) - 1)
+  ) %>%
+  select(samplename, missing)
+
+# Drop rows where missing data is too high
+qced_resorted_data2 <- resorted_data2[which(qc_data$missing < max_missing_data), ]
+print(paste0("# of samples with too much missing data: ", nrow(resorted_data2) - nrow(qced_resorted_data2)))
+
+# Print samples that were removed
+print("Samples removed:")
+if (nrow(resorted_data2) - nrow(qced_resorted_data2) > 0) {
+  print(qc_data[which(qc_data$missing >= max_missing_data), 1])
+} else {
+  print("None")
+}
 # export the genepop file
-write_genpop_file(data = resorted_data2, filename = genpop_filename, title = study_name, n_loci = n_loci_cutoff)
+write_genpop_file(data = qced_resorted_data2, filename = genpop_filename, title = study_name, n_loci = n_loci_cutoff)
 write.csv(snpkey, snp_keyfile_name)
 
 
