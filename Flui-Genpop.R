@@ -79,8 +79,16 @@ translate_fluidigm_to_genepop <- function(data) { # translates XX to 100100, etc
   return(new_data)
 }
 
-write_genpop_file <- function(data, filename, title = "Fluidigm", n_loci = 96, ...) { # Write a table with genepop format calls to a file
-  initial_data <- c(title, 1:n_loci, "Pop") # required header data for genepop, 1:96 represents the SNPs
+write_genpop_file <- function(data, filename, title = "Fluidigm", n_loci = 96, loci_names = NULL, ...) { # Write a table with genepop format calls to a file
+  if (!missing(loci_names)) {
+    # Replace underscores with dashes in loci names
+    loci_names <- gsub("_", "-", loci_names)
+    initial_data <- c(title, loci_names[1:n_loci], "Pop") # required header data for genepop, use SNP names if present
+  } else {
+    initial_data <- c(title, 1:n_loci, "Pop") # required header data for genepop, numbers represents the SNPs
+  }
+  
+  
   write.table(initial_data,
     file = filename,
     sep = "\t",
@@ -212,7 +220,7 @@ if (nrow(resorted_data2) - nrow(qced_resorted_data2) > 0) {
   print("None")
 }
 # export the genepop file
-write_genpop_file(data = qced_resorted_data2, filename = genpop_filename, title = study_name, n_loci = n_loci_cutoff)
+write_genpop_file(data = qced_resorted_data2, filename = genpop_filename, title = study_name, n_loci = n_loci_cutoff, loci_names = c(colnames(resorted_data2)[-1]))
 write.csv(snpkey, snp_keyfile_name)
 
 
