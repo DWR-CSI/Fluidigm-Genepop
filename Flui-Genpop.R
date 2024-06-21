@@ -23,7 +23,7 @@ greb_output_filename <-"greb1l_data.tsv" # Output, give an informative and uniqu
 
 the_good_grebs <- c("GREB1l_pos2194538", "GREB1l_pos2198644", "GREB1l_pos2199210", "GREB1l_pos2200828",	"GREB1l_pos2202893")
 
-log_filename <- paste0(Sys.Date(),"_", Sys.time(), "_log.txt") # Output, give an informative and unique name
+log_filename <- paste0(gsub("[: ]","_",Sys.time()), "_log.txt") # Output, give an informative and unique name
 sink(log_filename, append = FALSE) # Log file)
 
 # Logging -----------------------
