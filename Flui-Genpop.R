@@ -9,17 +9,18 @@ library(readxl)
 # Set working directory
 # setwd("C:/Users/sbrown/OneDrive - California Department of Water Resources/Salvage Pilot Study Documents/Fluidigm Data/20240321_Salvage_JPE/R Script Processing")
 setwd("C:/Users/bryann/Documents/code/fl2gp") # set to your working directory where relevant files exist.
-study_name <- "JPE salvage Fluidigm" # choose study name accordingly
+study_name <- "20240605 Salvage Fluidigm 80" # choose study name accordingly
 n_loci_cutoff <- 80 # Number of loci, set accordingly
 max_missing_data <- 0.3 # Maximum missing data allowed
+# For the Fluidigm input file, use the file created by the Fluidigm analysis software when you do: File > Export
 fluidigm_input_loc <- file.choose() #"Results_20240321_Salvage_JPE.csv" #input, set to corresponding file
 snp_keyfile_name <- "SNPKey.csv" # output, name it whatever
-genpop_filename <- "genepop_test2.gen" # An output, name it whatever
+genpop_filename <- "genepop_80_bn.gen" # An output, name it whatever
 locus_keyfile_name <- "Locus_Key_New_Order_240129.csv" # Input, set accordingly
 
 greb_key_file <- "greb1l_calls_fluidigm_guide.csv" # Input, set accordingly
 
-greb_output_filename <-"greb1l_data.tsv" # Output, give an informative and unique name
+greb_output_filename <-"greb1l_80_data.tsv" # Output, give an informative and unique name
 
 the_good_grebs <- c("GREB1l_pos2194538", "GREB1l_pos2198644", "GREB1l_pos2199210", "GREB1l_pos2200828",	"GREB1l_pos2202893")
 
@@ -49,7 +50,13 @@ read_fluidigm <- function(x, skip = 15, ...) { # x = filename
     rename(samplename = "...2") %>% # second column is samplename
     mutate(across(-1, ~ factor(.x, levels = c("XX", "XY", "YY", "No Call", "NTC", "Invalid")))) # rest of columns are factor data
   first_na_row <- which(is.na(data$samplename))[1] # find the first row with NA in the samplename column
-  return(data[1:(first_na_row - 1), ]) # return the data up to that row
+  if(!is.na(first_na_row)) { #if not trimmed, trim
+    return(data[1:(first_na_row - 1), ]) # return the data up to that row
+  } else {
+    return(data)
+  }
+
+  
 }
 
 gen_snpkey <- function(x) {
@@ -222,77 +229,3 @@ if (nrow(resorted_data2) - nrow(qced_resorted_data2) > 0) {
 # export the genepop file
 write_genpop_file(data = qced_resorted_data2, filename = genpop_filename, title = study_name, n_loci = n_loci_cutoff, loci_names = c(colnames(resorted_data2)[-1]))
 write.csv(snpkey, snp_keyfile_name)
-
-
-# Run a quick PCA to see if the format works
-
-
-adphen <- read.genepop(genpop_filename, ncode = 3)
-adphen$pop
-x <- scaleGen(adphen, NA.method = "mean")
-# quick look at data before putting populations into genepop file
-# look for things like too many groups, lots of samples in the middle etc.
-pca1 <- dudi.pca(x, cent = F, scale = F, scannf = F, nf = 3)
-barplot(pca1$eig[1:50], main = "PCA eigenvalues", col = heat.colors(50))
-col <- brewer.pal(4, "Dark2")
-s.class(pca1$li, pop(adphen),
-  xax = 1, yax = 2, col = col, axesell = FALSE,
-  cstar = 0, cpoint = 1.5, grid = FALSE, cellipse = 0
-)
-
-# filter out samples with lots of missing data
-tab_ad <- adphen$tab
-missing <- matrix(nrow = 96, ncol = 2)
-missing[, 1] <- row.names(tab_ad)
-samples <- row.names(tab_ad)
-for (i in 1:length(tab_ad[, 1])) {
-  missing[i, 2] <- 1 - length(na.omit(tab_ad[i, ])) / 192
-}
-colnames(missing) <- c("Sample", "% Missing")
-missing
-write.csv(missing, "missing_data.csv")
-
-# Order using a list (advanced) -------------------------------------------
-
-# order using a list
-sites <- read.csv("Samples_site_order.csv")
-
-by_sites <- data.frame(ID = sites, com = rep(",", times = (length <- nrow(p2))))
-
-daf <- data.frame()
-for (i in 1:length(sites[, 1])) {
-  a <- by_sites[i, 1]
-  b <- new[which(new$SampleID == a), ]
-  daf <- rbind(daf, b)
-}
-daf
-colnames(daf) <- c("SampleID", "com", colnames(p2[2:ncol(p2)]))
-daf
-row.names(daf) <- daf$SampleID
-daf
-daf <- daf[, -1]
-daf
-
-# remove individuals with a ton of missing data
-# remove individuals (aka individuals with low data)
-# read in a csv with just the individual names
-bad_samps <- read.csv("missing_data.csv", header = T)
-rem_samps <- bad_samps[which(bad_samps$X..Missing > 0.1), 2]
-length(rem_samps)
-rem_samps
-# remove the samples
-minbad <- adphen[!row.names(adphen@tab) %in% rem_samps]
-# check the right number of samples were removed
-length(row.names(minbad@tab))
-write.delim(minbad, "badout.gen", quote = FALSE, row.names = T, sep = "\t")
-genind2genpop(minbad, "badout.gen")
-
-# bring in file with bad sequenced samples removed
-badout <- read.genepop("badout.gen", ncode = 1)
-x <- scaleGen(minbad, NA.method = "mean")
-pca1 <- dudi.pca(x, cent = F, scale = F, scannf = F, nf = 3)
-barplot(pca1$eig[1:50], main = "PCA eigenvalues", col = heat.colors(50))
-s.class(pca1$li, pop(minbad),
-  xax = 1, yax = 2, col = col, axesell = FALSE,
-  cstar = 0, cpoint = 1.5, grid = FALSE, cellipse = 0, clabel = 0
-)
